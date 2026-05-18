@@ -6,10 +6,7 @@ A free, offline, single-file web tool for generating bulk QR codes from student 
 
 > No installation. No internet required after first load. No data ever leaves your device.
 
-![Preview](https://img.shields.io/badge/Offline-Ready-22d36e?style=flat-square)
-![Platform](https://img.shields.io/badge/Platform-Any%20Browser-4a9eff?style=flat-square)
-
-[![Live Demo](https://img.shields.io/badge/🚀%20Launch%20Live%20Demo-Click%20Here-f5a623?style=for-the-badge)](https://aychew1229.github.io/QRCODE/)
+[![Live Demo](https://img.shields.io/badge/🚀%20Launch%20Live%20Demo-Click%20Here-f5a623?style=for-the-badge)](https://aychew1229.github.io/QRCode/)
 
 ---
 
@@ -47,7 +44,7 @@ This tool solves both problems in one step:
 Click the badge at the top ↑ or go to:
 
 ```
-https://YOUR-USERNAME.github.io/YOUR-REPO-NAME/
+https://aychew1229.github.io/QRCode/
 ```
 
 Open it in your browser and start generating — no download required.
@@ -153,8 +150,7 @@ free to use, modify, and share.
 
 <div align="center">
 
-Built with ❤️ for student ID production workflows · [Debre Tabor University](https://dtu.edu.et)
-
+Built with ❤️ for student ID production workflows ·
 **If this saved you time, give it a ⭐ on GitHub!**
 
 </div>
