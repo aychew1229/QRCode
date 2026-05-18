@@ -1,0 +1,1421 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <title>Bulk QR Code Generator</title>
+<link rel="icon" type="image/png" href="icon.png">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;700&family=JetBrains+Mono:wght@400;600&display=swap");
+
+      :root {
+        --bg: #0a0c0f;
+        --surface: #111318;
+        --card: #161a21;
+        --border: #252b38;
+        --accent: #18a221;
+        --accent2: #e8520a;
+        --green: #22d36e;
+        --red: #e84242;
+        --blue: #4a9eff;
+        --muted: #4a5568;
+        --text: #d8dde8;
+        --textdim: #6b7a94;
+        --heading: #ffffff;
+        --mono: "JetBrains Mono", monospace;
+        --sans: "DM Sans", sans-serif;
+        --display: "Bebas Neue", sans-serif;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        overflow-x: hidden;
+      }
+
+      /* ══ HEADER ══ */
+      header {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 0 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 56px;
+        position: sticky;
+        top: 0;
+        z-index: 200;
+        flex-shrink: 0;
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        background: var(--accent);
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 2.5px;
+        padding: 5px;
+        border-radius: 6px;
+        flex-shrink: 0;
+      }
+      .logo-icon span {
+        background: var(--bg);
+        border-radius: 1px;
+      }
+      .logo-icon span:nth-child(3),
+      .logo-icon span:nth-child(7) {
+        background: var(--accent);
+      }
+      .logo h1 {
+        font-family: var(--display);
+        letter-spacing: 2px;
+        color: var(--heading);
+        white-space: nowrap;
+        font-size: clamp(16px, 4vw, 22px);
+      }
+      .logo h1 em {
+        color: var(--accent);
+        font-style: normal;
+      }
+      .header-badge {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--textdim);
+        background: var(--card);
+        border: 1px solid var(--border);
+        padding: 3px 8px;
+        border-radius: 20px;
+        letter-spacing: 1px;
+        white-space: nowrap;
+      }
+      @media (max-width: 380px) {
+        .header-badge {
+          display: none;
+        }
+      }
+
+      /* ══ MOBILE NAV ══ */
+      .mobile-nav {
+        display: none;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 56px;
+        z-index: 190;
+      }
+      .mobile-nav-inner {
+        display: flex;
+      }
+      .mnav-btn {
+        flex: 1;
+        padding: 11px 0;
+        border: none;
+        background: transparent;
+        color: var(--textdim);
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        position: relative;
+        transition: color 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .mnav-btn.active {
+        color: var(--accent);
+      }
+      .mnav-btn.active::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 10%;
+        right: 10%;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 2px 2px 0 0;
+      }
+      .mnav-badge {
+        background: var(--accent);
+        color: #000;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 10px;
+        display: none;
+      }
+      .mnav-badge.visible {
+        display: inline-block;
+      }
+
+      /* ══ DESKTOP LAYOUT ══ */
+      .app-shell {
+        display: flex;
+        height: calc(100vh - 56px);
+      }
+
+      .left-panel {
+        width: 360px;
+        min-width: 360px;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .left-panel-scroll {
+        overflow-y: auto;
+        flex: 1;
+      }
+
+      .right-panel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--bg);
+        min-width: 0;
+      }
+
+      /* ══ PANEL SECTIONS ══ */
+      .panel-section {
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .section-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 2px;
+        color: var(--accent);
+        text-transform: uppercase;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .section-label::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border);
+      }
+
+      /* ══ INPUT TABS ══ */
+      .tab-toggle {
+        display: flex;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 3px;
+        gap: 3px;
+        margin-bottom: 14px;
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 8px 0;
+        border: none;
+        background: transparent;
+        color: var(--textdim);
+        font-family: var(--sans);
+        font-size: 13px;
+        font-weight: 500;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .tab-btn.active {
+        background: var(--accent);
+        color: #000;
+      }
+
+      /* ══ UPLOAD ZONE ══ */
+      .upload-zone {
+        border: 2px dashed var(--border);
+        border-radius: 10px;
+        padding: 24px 16px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        background: var(--card);
+      }
+      .upload-zone:hover,
+      .upload-zone.drag-over {
+        border-color: var(--accent);
+        background: rgba(245, 166, 35, 0.06);
+      }
+      .upload-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+      }
+      .upload-icon {
+        font-size: 28px;
+        margin-bottom: 6px;
+      }
+      .upload-zone p {
+        font-size: 13px;
+        color: var(--textdim);
+        line-height: 1.5;
+      }
+      .upload-zone strong {
+        color: var(--accent);
+      }
+      .file-loaded {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: rgba(34, 211, 110, 0.08);
+        border: 1px solid rgba(34, 211, 110, 0.25);
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--green);
+        word-break: break-all;
+      }
+      .col-selector {
+        margin-top: 12px;
+        display: none;
+      }
+      .col-selector label {
+        font-size: 12px;
+        color: var(--textdim);
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      select {
+        width: 100%;
+        padding: 9px 12px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 13px;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%236b7a94' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        cursor: pointer;
+      }
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 120px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 12px;
+        padding: 10px;
+        resize: vertical;
+        line-height: 1.7;
+        transition: border-color 0.2s;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      textarea::placeholder {
+        color: var(--muted);
+      }
+
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 10px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .checkbox-row input[type="checkbox"] {
+        display: none;
+      }
+      .cb-box {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        border: 2px solid var(--border);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+      }
+      .checkbox-row input:checked + .cb-box {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .cb-check {
+        display: none;
+        font-size: 11px;
+        color: #000;
+        font-weight: 700;
+      }
+      .checkbox-row input:checked + .cb-box .cb-check {
+        display: block;
+      }
+      .checkbox-row span {
+        font-size: 12px;
+        color: var(--textdim);
+      }
+
+      .path-input-wrap {
+        position: relative;
+      }
+      .path-input-wrap input {
+        width: 100%;
+        padding: 9px 12px 9px 34px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 12px;
+        transition: border-color 0.2s;
+      }
+      .path-input-wrap input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .path-prefix-icon {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 14px;
+        pointer-events: none;
+      }
+      .path-hint {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 5px;
+        font-family: var(--mono);
+      }
+
+      .btn-generate {
+        width: 100%;
+        padding: 13px;
+        background: var(--accent);
+        color: #000;
+        border: none;
+        border-radius: 8px;
+        font-family: var(--display);
+        font-size: clamp(15px, 4vw, 18px);
+        letter-spacing: 2px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .btn-generate:hover:not(:disabled) {
+        background: #ffc04a;
+        transform: translateY(-1px);
+      }
+      .btn-generate:disabled {
+        background: var(--muted);
+        color: var(--textdim);
+        cursor: not-allowed;
+      }
+
+      /* ══ TOOLBAR ══ */
+      .right-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+      .stat-chip {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+      .stat-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex-shrink: 0;
+      }
+      .stat-dot.active {
+        background: var(--green);
+        box-shadow: 0 0 5px var(--green);
+      }
+      .stat-num {
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .stat-label {
+        color: var(--textdim);
+      }
+      .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      /* ══ DOWNLOAD / CLEAR BUTTONS ══ */
+      .btn-dl {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--card);
+        color: var(--textdim);
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        opacity: 0.4;
+        pointer-events: none;
+      }
+      .btn-dl .btn-icon {
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .btn-dl .btn-short {
+        display: none;
+      }
+      .btn-dl.ready {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .btn-dl.xl.ready {
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .btn-dl.xl.ready:hover {
+        background: rgba(245, 166, 35, 0.1);
+        transform: translateY(-1px);
+      }
+      .btn-dl.zip.ready {
+        border-color: var(--blue);
+        color: var(--blue);
+      }
+      .btn-dl.zip.ready:hover {
+        background: rgba(74, 158, 255, 0.1);
+        transform: translateY(-1px);
+      }
+
+      .btn-clr {
+        display: none;
+        align-items: center;
+        gap: 5px;
+        padding: 7px 12px;
+        border: 1px solid rgba(232, 66, 66, 0.3);
+        border-radius: 7px;
+        background: transparent;
+        color: var(--red);
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .btn-clr.visible {
+        display: flex;
+      }
+      .btn-clr:hover {
+        background: rgba(232, 66, 66, 0.08);
+      }
+      .btn-clr .btn-short {
+        display: none;
+      }
+
+      /* ══ PROGRESS ══ */
+      .progress-wrap {
+        padding: 0 16px 10px;
+        display: none;
+      }
+      .progress-wrap.active {
+        display: block;
+      }
+      .progress-track {
+        height: 3px;
+        background: var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        width: 0%;
+        transition: width 0.1s;
+      }
+      .progress-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--textdim);
+        margin-top: 5px;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      /* ══ PREVIEW ══ */
+      .preview-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+      }
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+        gap: 14px;
+        color: var(--muted);
+        text-align: center;
+        padding: 20px;
+      }
+      .empty-qr {
+        width: 80px;
+        height: 80px;
+        border: 2px dashed var(--border);
+        border-radius: 10px;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 3px;
+        padding: 10px;
+        opacity: 0.3;
+      }
+      .empty-qr span {
+        background: var(--muted);
+        border-radius: 1px;
+      }
+      .empty-qr span:nth-child(odd) {
+        opacity: 0.4;
+      }
+      .empty-state p {
+        font-size: 13px;
+        max-width: 280px;
+        line-height: 1.8;
+      }
+
+      .qr-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 14px;
+      }
+      .qr-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+        animation: fadeUp 0.3s ease both;
+      }
+      .qr-card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .qr-img-wrap {
+        width: 110px;
+        height: 110px;
+        background: #fff;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .qr-img-wrap img {
+        width: 110px;
+        height: 110px;
+        display: block;
+      }
+      .qr-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--textdim);
+        text-align: center;
+        word-break: break-all;
+      }
+      .qr-index {
+        font-family: var(--mono);
+        font-size: 9px;
+        color: var(--muted);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 2px 7px;
+        border-radius: 20px;
+      }
+
+      #qr-sink {
+        position: fixed;
+        left: -9999px;
+        top: -9999px;
+        width: 150px;
+        height: 150px;
+      }
+
+      /* ══ TOAST ══ */
+      .toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(90px);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--accent);
+        border-radius: 10px;
+        padding: 12px 18px;
+        font-size: 13px;
+        color: var(--text);
+        z-index: 9999;
+        transition: transform 0.3s ease;
+        max-width: calc(100vw - 40px);
+        text-align: center;
+        width: max-content;
+      }
+      .toast.show {
+        transform: translateX(-50%) translateY(0);
+      }
+      .toast.success {
+        border-left-color: var(--green);
+      }
+      .toast.error {
+        border-left-color: var(--red);
+      }
+
+      ::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+
+      /* ══════════════════════════════════════════════
+   RESPONSIVE — TABLET / MOBILE  (≤ 768px)
+══════════════════════════════════════════════ */
+      @media (max-width: 768px) {
+        .mobile-nav {
+          display: block;
+        }
+
+        .app-shell {
+          display: block;
+          height: auto;
+        }
+
+        .left-panel {
+          width: 100%;
+          min-width: 0;
+          border-right: none;
+          border-bottom: 1px solid var(--border);
+          overflow: visible;
+          height: auto;
+        }
+        .left-panel-scroll {
+          overflow: visible;
+        }
+        .right-panel {
+          height: auto;
+          min-height: 60vh;
+        }
+
+        /* Panel show/hide on mobile */
+        .left-panel.panel-hidden {
+          display: none;
+        }
+        .right-panel.panel-hidden {
+          display: none;
+        }
+
+        /* Shrink toolbar buttons to icon + short label */
+        .btn-dl .btn-text {
+          display: none;
+        }
+        .btn-dl .btn-short {
+          display: inline;
+        }
+        .btn-clr .btn-text {
+          display: none;
+        }
+        .btn-clr .btn-short {
+          display: inline;
+        }
+
+        .btn-dl {
+          padding: 7px 10px;
+          font-size: 11px;
+        }
+        .btn-clr {
+          padding: 7px 10px;
+          font-size: 11px;
+        }
+
+        .stat-label {
+          display: none;
+        }
+
+        .preview-area {
+          padding: 14px;
+        }
+        .qr-grid {
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+          gap: 10px;
+        }
+      }
+
+      /* ══════════════════════════════════════════════
+   SMALL PHONE  (≤ 420px)
+══════════════════════════════════════════════ */
+      @media (max-width: 420px) {
+        header {
+          padding: 0 12px;
+        }
+        .panel-section {
+          padding: 14px;
+        }
+        .right-toolbar {
+          padding: 8px 10px;
+          gap: 6px;
+        }
+        .toolbar-right {
+          gap: 4px;
+        }
+
+        .btn-dl {
+          padding: 6px 8px;
+          font-size: 10px;
+        }
+        .btn-dl .btn-icon {
+          font-size: 12px;
+        }
+        .btn-clr {
+          padding: 6px 8px;
+          font-size: 10px;
+        }
+
+        .qr-grid {
+          grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+          gap: 8px;
+        }
+        .qr-img-wrap {
+          width: 90px;
+          height: 90px;
+        }
+        .qr-img-wrap img {
+          width: 90px;
+          height: 90px;
+        }
+        .qr-card {
+          padding: 10px 8px;
+          gap: 6px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HEADER -->
+    <header>
+      <div class="logo">
+        <div class="logo-icon">
+          <span></span><span></span><span></span> <span></span><span></span
+          ><span></span> <span></span><span></span><span></span>
+        </div>
+        <h1>BULK QR <em>GENERATOR</em></h1>
+      </div>
+      <span class="header-badge">OFFLINE</span>
+    </header>
+
+    <!-- MOBILE NAV (only shows on ≤768px) -->
+    <nav class="mobile-nav">
+      <div class="mobile-nav-inner">
+        <button
+          class="mnav-btn active"
+          id="mnav-setup"
+          onclick="mobileNav('setup')">
+          ⚙ Setup
+        </button>
+        <button
+          class="mnav-btn"
+          id="mnav-preview"
+          onclick="mobileNav('preview')">
+          🔍 Preview
+          <span class="mnav-badge" id="mnav-badge">0</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- APP SHELL -->
+    <div class="app-shell">
+      <!-- LEFT PANEL -->
+      <aside class="left-panel" id="left-panel">
+        <div class="left-panel-scroll">
+          <div class="panel-section">
+            <div class="section-label">01 · Input Source</div>
+            <div class="tab-toggle">
+              <button
+                class="tab-btn active"
+                id="tab-file"
+                onclick="switchTab('file')">
+                📄 Excel File
+              </button>
+              <button
+                class="tab-btn"
+                id="tab-paste"
+                onclick="switchTab('paste')">
+                📋 Copy-Paste
+              </button>
+            </div>
+
+            <!-- File pane -->
+            <div id="pane-file">
+              <div class="upload-zone" id="upload-zone">
+                <input
+                  type="file"
+                  id="file-input"
+                  accept=".xlsx,.xls,.csv"
+                  title="Upload an Excel or CSV file"
+                  aria-label="Upload an Excel or CSV file" />
+                <div class="upload-icon">📊</div>
+                <p><strong>Click to upload</strong> or drag & drop</p>
+                <p>.xlsx · .xls · .csv</p>
+              </div>
+              <div class="file-loaded" id="file-loaded">
+                ✅ <span id="file-loaded-name"></span>
+              </div>
+              <div class="col-selector" id="col-selector">
+                <label for="col-select">Select Target Column</label>
+                <select
+                  id="col-select"
+                  title="Select target column"
+                  onchange="onColumnChange()"></select>
+              </div>
+            </div>
+
+            <!-- Paste pane -->
+            <div id="pane-paste" style="display: none">
+              <textarea
+                id="paste-input"
+                title="Paste entire column data"
+                placeholder="Paste entire column here...&#10;DTU17RT6011&#10;DTU17RT6012&#10;DTU17RT6013"></textarea>
+              <label class="checkbox-row">
+                <input type="checkbox" id="skip-header" checked />
+                <div class="cb-box"><span class="cb-check">✓</span></div>
+                <span>Skip first line (Header row)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="section-label">02 · Local Save Folder Path</div>
+            <div class="path-input-wrap">
+              <span class="path-prefix-icon">📁</span>
+              <input
+                type="text"
+                id="save-path"
+                value="D:\qrcodes\"
+                title="Local save folder path"
+                placeholder="D:\qrcodes\" />
+            </div>
+            <p class="path-hint">⚠ Must end with \ (backslash)</p>
+          </div>
+
+          <div class="panel-section">
+            <div class="section-label">03 · Generate</div>
+            <button
+              class="btn-generate"
+              id="btn-generate"
+              onclick="generateQRCodes()">
+              ⚡ GENERATE QR CODES
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT PANEL -->
+      <section class="right-panel panel-hidden" id="right-panel">
+        <div class="right-toolbar">
+          <div class="toolbar-left">
+            <div class="stat-chip">
+              <div class="stat-dot" id="status-dot"></div>
+              <span
+                id="status-text"
+                style="
+                  font-family: var(--mono);
+                  font-size: 11px;
+                  color: var(--textdim);
+                "
+                >Ready</span
+              >
+            </div>
+            <div class="stat-chip">
+              <span class="stat-label">Records:&nbsp;</span>
+              <span class="stat-num" id="count-display">0</span>
+            </div>
+          </div>
+          <div class="toolbar-right">
+            <button class="btn-dl zip" id="btn-zip" onclick="downloadZip()">
+              <span class="btn-icon">📦</span>
+              <span class="btn-text">Download QR Codes (.ZIP)</span>
+              <span class="btn-short">ZIP</span>
+            </button>
+            <button class="btn-dl xl" id="btn-xlsx" onclick="downloadExcel()">
+              <span class="btn-icon">📊</span>
+              <span class="btn-text">Download Updated Excel (.XLSX)</span>
+              <span class="btn-short">Excel</span>
+            </button>
+            <button class="btn-clr" id="btn-clear" onclick="clearAll()">
+              <span class="btn-icon">🗑</span>
+              <span class="btn-text">Clear</span>
+              <span class="btn-short">Clear</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-label">
+            <span id="progress-text">Processing…</span>
+            <span id="progress-pct">0%</span>
+          </div>
+        </div>
+
+        <div class="preview-area" id="preview-area">
+          <div class="empty-state" id="empty-state">
+            <div class="empty-qr">
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p>
+              Load student data in
+              <strong style="color: var(--accent)">Setup</strong>, then tap
+              <strong style="color: var(--accent)">Generate QR Codes</strong> to
+              preview and export your batch.
+            </p>
+          </div>
+          <div class="qr-grid" id="qr-grid" style="display: none"></div>
+        </div>
+      </section>
+    </div>
+
+    <div id="qr-sink"></div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      // ─── STATE ───────────────────────────────────────────────────
+      let activeTab = "file";
+      let workbookData = null,
+        workbookHeaders = [],
+        selectedColIdx = 0;
+      let generatedIDs = [],
+        generatedPNGs = {},
+        originalWB = null;
+      const isMobile = () => window.innerWidth <= 768;
+
+      // ─── MOBILE NAV ──────────────────────────────────────────────
+      function mobileNav(panel) {
+        const L = document.getElementById("left-panel");
+        const R = document.getElementById("right-panel");
+        const S = document.getElementById("mnav-setup");
+        const P = document.getElementById("mnav-preview");
+        if (panel === "setup") {
+          L.classList.remove("panel-hidden");
+          R.classList.add("panel-hidden");
+          S.classList.add("active");
+          P.classList.remove("active");
+        } else {
+          R.classList.remove("panel-hidden");
+          L.classList.add("panel-hidden");
+          P.classList.add("active");
+          S.classList.remove("active");
+          // scroll preview to top
+          document.getElementById("preview-area").scrollTop = 0;
+        }
+      }
+      window.addEventListener("resize", () => {
+        if (!isMobile()) {
+          document
+            .getElementById("left-panel")
+            .classList.remove("panel-hidden");
+          document
+            .getElementById("right-panel")
+            .classList.remove("panel-hidden");
+        }
+      });
+
+      // ─── INPUT TABS ──────────────────────────────────────────────
+      function switchTab(tab) {
+        activeTab = tab;
+        document
+          .getElementById("tab-file")
+          .classList.toggle("active", tab === "file");
+        document
+          .getElementById("tab-paste")
+          .classList.toggle("active", tab === "paste");
+        document.getElementById("pane-file").style.display =
+          tab === "file" ? "" : "none";
+        document.getElementById("pane-paste").style.display =
+          tab === "paste" ? "" : "none";
+      }
+
+      // ─── FILE UPLOAD ─────────────────────────────────────────────
+      const uploadZone = document.getElementById("upload-zone");
+      const fileInput = document.getElementById("file-input");
+      uploadZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadZone.classList.add("drag-over");
+      });
+      uploadZone.addEventListener("dragleave", () =>
+        uploadZone.classList.remove("drag-over"),
+      );
+      uploadZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadZone.classList.remove("drag-over");
+        const f = e.dataTransfer.files[0];
+        if (f) processFile(f);
+      });
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files[0]) processFile(fileInput.files[0]);
+      });
+
+      function processFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const wb = XLSX.read(e.target.result, { type: "binary" });
+            originalWB = wb;
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json(ws, {
+              header: 1,
+              defval: "",
+            });
+            workbookData = data;
+            workbookHeaders = data[0] || [];
+            const sel = document.getElementById("col-select");
+            sel.innerHTML = "";
+            workbookHeaders.forEach((h, i) => {
+              const opt = document.createElement("option");
+              opt.value = i;
+              opt.textContent = `Column ${i + 1}: ${h || "(empty)"}`;
+              sel.appendChild(opt);
+            });
+            const idIdx = workbookHeaders.findIndex((h) =>
+              /id|no|number|student/i.test(h),
+            );
+            sel.value = idIdx >= 0 ? idIdx : 0;
+            selectedColIdx = parseInt(sel.value);
+            document.getElementById("col-selector").style.display = "block";
+            document.getElementById("file-loaded").style.display = "flex";
+            document.getElementById("file-loaded-name").textContent = file.name;
+            uploadZone.style.display = "none";
+            showToast(
+              `✅ Loaded ${data.length - 1} rows from ${file.name}`,
+              "success",
+            );
+          } catch (err) {
+            showToast(
+              "❌ Could not parse file. Use .xlsx / .xls / .csv",
+              "error",
+            );
+          }
+        };
+        reader.readAsBinaryString(file);
+      }
+      function onColumnChange() {
+        selectedColIdx = parseInt(document.getElementById("col-select").value);
+      }
+
+      // ─── GENERATE ────────────────────────────────────────────────
+      async function generateQRCodes() {
+        const ids = getIDList();
+        if (!ids.length) {
+          showToast("⚠ No data found. Load a file or paste IDs.", "error");
+          return;
+        }
+
+        generatedIDs = ids;
+        generatedPNGs = {};
+        if (isMobile()) mobileNav("preview");
+
+        setStatus("Generating…", true);
+        document.getElementById("empty-state").style.display = "none";
+        const grid = document.getElementById("qr-grid");
+        grid.style.display = "grid";
+        grid.innerHTML = "";
+        showProgress(true);
+        document.getElementById("count-display").textContent = ids.length;
+        document.getElementById("mnav-badge").textContent = ids.length;
+        document.getElementById("mnav-badge").classList.add("visible");
+
+        const sink = document.getElementById("qr-sink");
+        const btn = document.getElementById("btn-generate");
+        btn.disabled = true;
+        btn.textContent = "⏳ Generating…";
+
+        for (let i = 0; i < ids.length; i++) {
+          const id = ids[i];
+          sink.innerHTML = "";
+          await new Promise((resolve) => {
+            new QRCode(sink, {
+              text: id,
+              width: 150,
+              height: 150,
+              colorDark: "#000000",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.M,
+            });
+            setTimeout(() => {
+              const canvas = sink.querySelector("canvas");
+              if (canvas) generatedPNGs[id] = canvas.toDataURL("image/png");
+              resolve();
+            }, 30);
+          });
+
+          const card = document.createElement("div");
+          card.className = "qr-card";
+          card.style.animationDelay = `${Math.min(i * 15, 300)}ms`;
+          const idx = document.createElement("div");
+          idx.className = "qr-index";
+          idx.textContent = `#${i + 1}`;
+          const wrap = document.createElement("div");
+          wrap.className = "qr-img-wrap";
+          if (generatedPNGs[id]) {
+            const img = document.createElement("img");
+            img.src = generatedPNGs[id];
+            wrap.appendChild(img);
+          }
+          const label = document.createElement("div");
+          label.className = "qr-label";
+          label.textContent = id;
+          card.appendChild(idx);
+          card.appendChild(wrap);
+          card.appendChild(label);
+          grid.appendChild(card);
+
+          updateProgress(i + 1, ids.length);
+          if (i % 20 === 0) await new Promise((r) => setTimeout(r, 0));
+        }
+
+        showProgress(false);
+        setStatus("Done", true);
+        btn.disabled = false;
+        btn.innerHTML = "⚡ GENERATE QR CODES";
+        document.getElementById("btn-zip").classList.add("ready");
+        document.getElementById("btn-xlsx").classList.add("ready");
+        document.getElementById("btn-clear").classList.add("visible");
+        showToast(`✅ ${ids.length} QR codes generated!`, "success");
+      }
+
+      // ─── ID LIST ─────────────────────────────────────────────────
+      function getIDList() {
+        if (activeTab === "file") {
+          if (!workbookData) return [];
+          return workbookData
+            .slice(1)
+            .map((row) => String(row[selectedColIdx] || "").trim())
+            .filter((v) => v);
+        } else {
+          let lines = document.getElementById("paste-input").value.split("\n");
+          if (document.getElementById("skip-header").checked)
+            lines = lines.slice(1);
+          return lines.map((l) => l.trim()).filter((l) => l);
+        }
+      }
+
+      // ─── DOWNLOAD ZIP ────────────────────────────────────────────
+      async function downloadZip() {
+        if (!Object.keys(generatedPNGs).length) return;
+        showToast("📦 Building ZIP…");
+        const zip = new JSZip();
+        for (const [id, b64] of Object.entries(generatedPNGs))
+          zip.file(`${id}.png`, b64.replace(/^data:image\/png;base64,/, ""), {
+            base64: true,
+          });
+        const blob = await zip.generateAsync({ type: "blob" });
+        triggerDownload(blob, "QR_Codes.zip");
+        showToast(
+          "✅ ZIP downloaded! Extract into your save folder.",
+          "success",
+        );
+      }
+
+      // ─── DOWNLOAD EXCEL ──────────────────────────────────────────
+      function downloadExcel() {
+        if (!generatedIDs.length) return;
+        const savePath = getSavePath();
+        let wb, ws, data;
+        if (activeTab === "file" && workbookData) {
+          data = workbookData.map((row) => [...row]);
+          let qrColIdx = data[0].findIndex((h) =>
+            /qrcode|qr_code|qr code/i.test(String(h)),
+          );
+          if (qrColIdx === -1) {
+            qrColIdx = data[0].length;
+            data[0].push("QrCode");
+          }
+          for (let r = 1; r < data.length; r++) {
+            const id = String(data[r][selectedColIdx] || "").trim();
+            if (id) {
+              while (data[r].length <= qrColIdx) data[r].push("");
+              data[r][qrColIdx] = `${savePath}${id}.png`;
+            }
+          }
+          ws = XLSX.utils.aoa_to_sheet(data);
+          wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        } else {
+          const aoa = [
+            ["IDNo", "QrCode"],
+            ...generatedIDs.map((id) => [id, `${savePath}${id}.png`]),
+          ];
+          ws = XLSX.utils.aoa_to_sheet(aoa);
+          wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        }
+        XLSX.writeFile(wb, "Book1_With_QRCodes.xlsx");
+        showToast("✅ Excel downloaded with QrCode paths!", "success");
+      }
+
+      function getSavePath() {
+        let p = document.getElementById("save-path").value.trim();
+        if (!p.endsWith("\\") && !p.endsWith("/")) p += "\\";
+        return p;
+      }
+
+      // ─── CLEAR ───────────────────────────────────────────────────
+      function clearAll() {
+        generatedIDs = [];
+        generatedPNGs = {};
+        workbookData = null;
+        workbookHeaders = [];
+        originalWB = null;
+        document.getElementById("qr-grid").innerHTML = "";
+        document.getElementById("qr-grid").style.display = "none";
+        document.getElementById("empty-state").style.display = "flex";
+        document.getElementById("count-display").textContent = "0";
+        ["btn-zip", "btn-xlsx"].forEach((id) =>
+          document.getElementById(id).classList.remove("ready"),
+        );
+        document.getElementById("btn-clear").classList.remove("visible");
+        document.getElementById("file-loaded").style.display = "none";
+        document.getElementById("upload-zone").style.display = "";
+        document.getElementById("col-selector").style.display = "none";
+        document.getElementById("paste-input").value = "";
+        document.getElementById("file-input").value = "";
+        document.getElementById("mnav-badge").classList.remove("visible");
+        setStatus("Ready", false);
+        if (isMobile()) mobileNav("setup");
+        showToast("🗑 Cleared. Ready for a new batch.", "success");
+      }
+
+      // ─── HELPERS ─────────────────────────────────────────────────
+      function setStatus(text, active) {
+        document.getElementById("status-text").textContent = text;
+        document.getElementById("status-dot").className =
+          "stat-dot" + (active ? " active" : "");
+      }
+      function showProgress(show) {
+        document.getElementById("progress-wrap").className =
+          "progress-wrap" + (show ? " active" : "");
+      }
+      function updateProgress(done, total) {
+        const pct = Math.round((done / total) * 100);
+        document.getElementById("progress-fill").style.width = pct + "%";
+        document.getElementById("progress-pct").textContent = pct + "%";
+        document.getElementById("progress-text").textContent =
+          `${done} of ${total}`;
+      }
+      function triggerDownload(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+      let toastTimer;
+      function showToast(msg, type = "") {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.className = `toast ${type} show`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove("show"), 3500);
+      }
+    </script>
+  </body>
+</html>
